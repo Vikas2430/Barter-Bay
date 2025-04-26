@@ -289,4 +289,129 @@ exports.getListingById = async (req, res) => {
       error: 'Server error while fetching listing'
     });
   }
+};
+
+// Rent an item
+exports.rentItem = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+    const { startDate, endDate, quantity, totalAmount } = req.body;
+    const userId = req.user._id;
+
+    const listing = await Listing.findById(listingId).populate('seller', '_id');
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Listing not found'
+      });
+    }
+
+    // Check if user is trying to rent their own item
+    if (listing.seller._id.toString() === userId.toString()) {
+      return res.status(400).json({
+        success: false,
+        error: 'You cannot rent your own item'
+      });
+    }
+
+    if (listing.type !== 'rental') {
+      return res.status(400).json({
+        success: false,
+        error: 'This item is not available for rent'
+      });
+    }
+
+    if (listing.status === 'rented') {
+      return res.status(400).json({
+        success: false,
+        error: 'Item is already rented'
+      });
+    }
+
+    // Update listing status
+    listing.status = 'rented';
+    listing.renter = userId;
+    listing.rentalStartDate = startDate;
+    listing.rentalEndDate = endDate;
+    listing.rentalQuantity = quantity;
+    listing.rentalTotalAmount = totalAmount;
+
+    await listing.save();
+
+    // Populate the listing with necessary fields before sending response
+    const populatedListing = await Listing.findById(listing._id)
+      .populate('seller', 'username')
+      .populate('renter', 'username')
+      .populate('images');
+
+    res.json({
+      success: true,
+      data: {
+        listing: populatedListing
+      }
+    });
+  } catch (error) {
+    console.error('Rent item error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while renting item'
+    });
+  }
+};
+
+// Return a rented item
+exports.returnItem = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+    const userId = req.user._id;
+
+    const listing = await Listing.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Listing not found'
+      });
+    }
+
+    if (listing.type !== 'rental') {
+      return res.status(400).json({
+        success: false,
+        error: 'This item is not a rental'
+      });
+    }
+
+    if (listing.status !== 'rented') {
+      return res.status(400).json({
+        success: false,
+        error: 'Item is not currently rented'
+      });
+    }
+
+    if (listing.renter.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to return this item'
+      });
+    }
+
+    listing.status = 'available';
+    listing.renter = null;
+    listing.rentalStartDate = null;
+    listing.rentalEndDate = null;
+
+    await listing.save();
+
+    res.json({
+      success: true,
+      data: {
+        listing
+      }
+    });
+  } catch (error) {
+    console.error('Return item error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while returning item'
+    });
+  }
 }; 

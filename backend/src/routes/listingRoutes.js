@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { createListing, getUserListings, updateListing, deleteListing, getListingById } = require('../controllers/listingController');
+const { createListing, getUserListings, updateListing, deleteListing, getListingById, rentItem, returnItem } = require('../controllers/listingController');
 const auth = require('../middleware/auth');
 const Listing = require('../models/Listing');
 
@@ -25,7 +25,7 @@ const upload = multer({
 // Get all listings (public)
 router.get('/', async (req, res) => {
   try {
-    const listings = await Listing.find({ type: 'sale' })
+    const listings = await Listing.find()
       .populate({
         path: 'images',
         select: 'data contentType filename'
@@ -65,5 +65,11 @@ router.put('/:id', auth, upload.array('images', 8), updateListing);
 
 // Delete listing (protected)
 router.delete('/:id', auth, deleteListing);
+
+// Rent an item (protected)
+router.post('/:id/rent', auth, rentItem);
+
+// Return a rented item (protected)
+router.post('/:id/return', auth, returnItem);
 
 module.exports = router; 

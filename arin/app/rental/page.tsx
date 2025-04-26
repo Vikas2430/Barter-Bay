@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
 import Image from "next/image"
+import { RentalPopup } from "@/components/rental-popup"
 
 interface Pricing {
   daily: number;
@@ -30,6 +31,9 @@ interface RentalItem {
   photos: string[];
   status?: string;
   rentalStartDate?: Date;
+  rentalEndDate?: Date;
+  rentalQuantity?: number;
+  rentalTotalAmount?: number;
 }
 
 // Dummy rental items
@@ -129,42 +133,262 @@ const dummyRentals: RentalItem[] = [
 export default function RentalPage() {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
-  const [availableRentals, setAvailableRentals] = useState<RentalItem[]>(dummyRentals);
+  const [availableRentals, setAvailableRentals] = useState<RentalItem[]>([]);
   const [myRentals, setMyRentals] = useState<RentalItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRental, setSelectedRental] = useState<RentalItem | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
-  const handleRent = async (rentalId: string) => {
-    if (!isLoggedIn) {
-      toast.error("Please login to rent items");
-      router.push("/login");
-      return;
-    }
-
+  // Fetch real rental listings
+  const fetchRentals = async () => {
     try {
-      // In a real application, this would be an API call
-      const rental = availableRentals.find(r => r.id === rentalId);
-      if (rental) {
-        setAvailableRentals(prev => prev.filter(r => r.id !== rentalId));
-        setMyRentals(prev => [...prev, { ...rental, status: "rented", rentalStartDate: new Date() }]);
-        toast.success("Item rented successfully!");
+      setIsLoading(true);
+      setError(null);
+
+      const response = await fetch('http://localhost:5000/api/listings', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch rentals');
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.data?.listings) {
+        throw new Error('Invalid response format from server');
+      }
+
+      // Filter rental listings and transform them to match the RentalItem format
+      const rentalListings = data.data.listings
+        .filter((listing: any) => listing.type === 'rental')
+        .map((listing: any) => ({
+          id: listing._id,
+          title: listing.title,
+          description: listing.description,
+          category: listing.category,
+          condition: listing.condition,
+          location: listing.location,
+          pricing: {
+            daily: listing.price?.perDay || 0,
+            weekly: listing.price?.perWeek || 0,
+            monthly: listing.price?.perMonth || 0
+          },
+          securityDeposit: listing.price?.securityDeposit || 0,
+          deliveryAvailable: listing.deliveryAvailable || false,
+          deliveryCharges: listing.price?.deliveryCharges || 0,
+          contactInfo: listing.contactInfo || '',
+          photos: listing.images?.map((img: any) => 
+            `data:${img.contentType};base64,${img.data}`
+          ) || ['/placeholder.svg'],
+          status: listing.status,
+          rentalStartDate: listing.rentalStartDate ? new Date(listing.rentalStartDate) : undefined
+        }));
+
+      // Only set real rentals if we have them, otherwise use dummy rentals
+      if (rentalListings.length > 0) {
+        setAvailableRentals(rentalListings);
+      } else {
+        setAvailableRentals(dummyRentals);
       }
     } catch (error) {
-      toast.error("Failed to rent item");
+      console.error('Error fetching rentals:', error);
+      setError('Failed to load rentals. Please try again later.');
+      // Fallback to dummy rentals if fetch fails
+      setAvailableRentals(dummyRentals);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchRentals();
+  }, []);
+
+  const handleRentClick = (rental: RentalItem) => {
+    setSelectedRental(rental);
+    setIsPopupOpen(true);
+  };
+
+  const handleRentalConfirm = async (duration: string, quantity: number, totalAmount: number) => {
+    if (!selectedRental) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      // Calculate end date based on duration
+      const startDate = new Date();
+      let endDate = new Date();
+      switch (duration) {
+        case 'daily':
+          endDate.setDate(endDate.getDate() + 1);
+          break;
+        case 'weekly':
+          endDate.setDate(endDate.getDate() + 7);
+          break;
+        case 'monthly':
+          endDate.setMonth(endDate.getMonth() + 1);
+          break;
+        default:
+          endDate.setDate(endDate.getDate() + 7); // Default to weekly
+      }
+
+      // Make the rental request
+      const response = await fetch(`http://localhost:5000/api/listings/${selectedRental.id}/rent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          quantity,
+          totalAmount
+        })
+      });
+
+      // Handle the response
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          toast.error('Please login to rent items');
+          router.push('/login');
+          return;
+        }
+        const errorData = await response.json().catch(() => ({ error: 'Failed to rent item' }));
+        throw new Error(errorData.error || 'Failed to rent item');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        const rental = data.data.listing;
+        
+        // Update the rental status in the UI
+        setAvailableRentals(prev => 
+          prev.map(item => 
+            item.id === selectedRental.id 
+              ? { ...item, status: 'rented', rentalStartDate: startDate }
+              : item
+          )
+        );
+
+        // Add to my rentals
+        const newRental = {
+          id: rental._id,
+          title: rental.title,
+          description: rental.description,
+          category: rental.category,
+          condition: rental.condition,
+          location: rental.location,
+          pricing: {
+            daily: rental.price?.perDay || 0,
+            weekly: rental.price?.perWeek || 0,
+            monthly: rental.price?.perMonth || 0
+          },
+          securityDeposit: rental.price?.securityDeposit || 0,
+          deliveryAvailable: rental.deliveryAvailable || false,
+          deliveryCharges: rental.price?.deliveryCharges || 0,
+          contactInfo: rental.contactInfo,
+          photos: rental.images?.map((img: any) => img.data) || [],
+          status: 'rented',
+          rentalStartDate: startDate,
+          rentalEndDate: endDate,
+          rentalQuantity: quantity,
+          rentalTotalAmount: totalAmount
+        };
+
+        setMyRentals(prev => [...prev, newRental]);
+        
+        // Switch to My Rentals tab
+        const tabsList = document.querySelector('[role="tablist"]');
+        if (tabsList) {
+          const myRentalsTab = tabsList.querySelector('[value="my-rentals"]');
+          if (myRentalsTab) {
+            (myRentalsTab as HTMLElement).click();
+          }
+        }
+
+        toast.success("Item rented successfully!");
+        setIsPopupOpen(false);
+        setSelectedRental(null);
+      }
+    } catch (error) {
+      console.error('Error renting item:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to rent item");
     }
   };
 
   const handleReturn = async (rentalId: string) => {
     try {
-      // In a real application, this would be an API call
-      const rental = myRentals.find(r => r.id === rentalId);
-      if (rental) {
-        setMyRentals(prev => prev.filter(r => r.id !== rentalId));
-        setAvailableRentals(prev => [...prev, { ...rental, status: "available" }]);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5000/api/listings/${rentalId}/return`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to return item');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Update the rental status in the UI
+        setAvailableRentals(prev => 
+          prev.map(rental => 
+            rental.id === rentalId 
+              ? { ...rental, status: 'available', rentalStartDate: undefined }
+              : rental
+          )
+        );
+        // Remove from my rentals
+        setMyRentals(prev => prev.filter(rental => rental.id !== rentalId));
         toast.success("Item returned successfully!");
       }
     } catch (error) {
-      toast.error("Failed to return item");
+      console.error('Error returning item:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to return item");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center text-red-500">
+          <p>{error}</p>
+          <Button onClick={fetchRentals} className="mt-4">Try Again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -182,21 +406,48 @@ export default function RentalPage() {
         <TabsContent value="browse" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availableRentals.map((rental) => (
-              <Card key={rental.id}>
-                <CardHeader>
-                  <CardTitle>{rental.title}</CardTitle>
-                  <CardDescription>{rental.description}</CardDescription>
+              <Card key={`available-${rental.id}`} className="group hover:shadow-lg transition-all duration-300">
+                <div className="relative">
+                  <div className="aspect-square relative overflow-hidden">
+                    <img
+                      src={rental.photos[0]}
+                      alt={rental.title}
+                      className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <p className="text-sm line-clamp-2">{rental.description}</p>
+                  </div>
+                </div>
+
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg font-semibold line-clamp-1">{rental.title}</CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        {rental.location}
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        rental.deliveryAvailable 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {rental.deliveryAvailable ? 'Delivery Available' : 'No Delivery'}
+                      </span>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent>
+
+                <CardContent className="p-4 pt-2">
                   <div className="space-y-2">
                     <p className="text-sm">
                       <span className="font-semibold">Category:</span> {rental.category}
                     </p>
                     <p className="text-sm">
                       <span className="font-semibold">Condition:</span> {rental.condition}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Location:</span> {rental.location}
                     </p>
                     <p className="text-sm">
                       <span className="font-semibold">Daily Rate:</span> ₹{rental.pricing.daily}
@@ -210,9 +461,6 @@ export default function RentalPage() {
                     <p className="text-sm">
                       <span className="font-semibold">Security Deposit:</span> ₹{rental.securityDeposit}
                     </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Delivery:</span> {rental.deliveryAvailable ? "Available" : "Not Available"}
-                    </p>
                     {rental.deliveryAvailable && (
                       <p className="text-sm">
                         <span className="font-semibold">Delivery Charges:</span> ₹{rental.deliveryCharges}
@@ -220,9 +468,14 @@ export default function RentalPage() {
                     )}
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Button className="w-full" onClick={() => handleRent(rental.id)}>
-                    Rent Now
+
+                <CardFooter className="p-4 pt-2">
+                  <Button 
+                    className="w-full" 
+                    onClick={() => rental.status === 'rented' ? handleReturn(rental.id) : handleRentClick(rental)}
+                    disabled={rental.status === 'rented'}
+                  >
+                    {rental.status === 'rented' ? 'Currently Rented' : 'Rent Now'}
                   </Button>
                 </CardFooter>
               </Card>
@@ -233,31 +486,37 @@ export default function RentalPage() {
         <TabsContent value="my-rentals" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {myRentals.map((rental) => (
-              <Card key={rental.id}>
+              <Card key={`my-rental-${rental.id}-${rental.rentalStartDate?.getTime()}`}>
                 <CardHeader>
                   <CardTitle>{rental.title}</CardTitle>
-                  <CardDescription>
-                    Rented on {rental.rentalStartDate ? new Date(rental.rentalStartDate).toLocaleDateString() : 'N/A'}
-                  </CardDescription>
+                  <CardDescription>{rental.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <p className="text-sm">
+                      <span className="font-semibold">Rental Start Date:</span>{' '}
+                      {rental.rentalStartDate?.toLocaleDateString()}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold">Rental End Date:</span>{' '}
+                      {rental.rentalEndDate?.toLocaleDateString()}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold">Quantity:</span> {rental.rentalQuantity}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold">Total Amount:</span> ₹{rental.rentalTotalAmount}
+                    </p>
+                    <p className="text-sm">
                       <span className="font-semibold">Status:</span> {rental.status}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Daily Rate:</span> ₹{rental.pricing.daily}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold">Security Deposit:</span> ₹{rental.securityDeposit}
                     </p>
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button 
-                    variant="outline" 
-                    className="w-full"
+                    className="w-full" 
                     onClick={() => handleReturn(rental.id)}
+                    disabled={rental.status !== 'rented'}
                   >
                     Return Item
                   </Button>
@@ -267,6 +526,18 @@ export default function RentalPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {selectedRental && (
+        <RentalPopup
+          isOpen={isPopupOpen}
+          onClose={() => {
+            setIsPopupOpen(false);
+            setSelectedRental(null);
+          }}
+          onConfirm={handleRentalConfirm}
+          item={selectedRental}
+        />
+      )}
     </div>
   );
 } 

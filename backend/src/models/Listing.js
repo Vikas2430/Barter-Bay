@@ -70,8 +70,8 @@ const listingSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['active', 'sold', 'inactive'],
-    default: 'active'
+    enum: ['available', 'rented', 'returned', 'sold', 'inactive'],
+    default: 'available'
   },
   location: {
     type: String,
@@ -86,6 +86,25 @@ const listingSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  renter: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  rentalStartDate: {
+    type: Date
+  },
+  rentalEndDate: {
+    type: Date
+  },
+  rentalQuantity: {
+    type: Number,
+    min: 1,
+    default: 1
+  },
+  rentalTotalAmount: {
+    type: Number,
+    min: 0
   },
   createdAt: {
     type: Date,
