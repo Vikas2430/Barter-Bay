@@ -22,6 +22,11 @@ const listingSchema = new mongoose.Schema({
     required: true
   },
   price: {
+    amount: {
+      type: Number,
+      required: function() { return this.type === 'sale'; },
+      min: 0
+    },
     perDay: {
       type: Number,
       required: function() { return this.type === 'rental'; },

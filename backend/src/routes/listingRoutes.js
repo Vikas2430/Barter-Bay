@@ -25,7 +25,7 @@ const upload = multer({
 // Get all listings (public)
 router.get('/', async (req, res) => {
   try {
-    const listings = await Listing.find()
+    const listings = await Listing.find({ type: 'sale' })
       .populate({
         path: 'images',
         select: 'data contentType filename'

@@ -20,7 +20,8 @@ exports.createListing = async (req, res) => {
       condition, 
       location,
       deliveryAvailable,
-      contactInfo
+      contactInfo,
+      price
     } = req.body;
     const sellerId = req.user._id;
     const images = req.files;
@@ -45,20 +46,31 @@ exports.createListing = async (req, res) => {
       })
     );
 
-    const price = {
-      perDay: parseFloat(pricePerDay),
-      perWeek: parseFloat(pricePerWeek),
-      perMonth: parseFloat(pricePerMonth),
-      securityDeposit: parseFloat(securityDeposit),
-      deliveryCharges: deliveryAvailable ? parseFloat(deliveryCharges) : 0
-    };
+    let priceData;
+    if (type === 'sale') {
+      // Parse price if it's a string
+      try {
+        priceData = typeof price === 'string' ? JSON.parse(price) : price;
+      } catch (error) {
+        console.error('Error parsing price:', error);
+        priceData = { amount: 0 };
+      }
+    } else {
+      priceData = {
+        perDay: parseFloat(pricePerDay),
+        perWeek: parseFloat(pricePerWeek),
+        perMonth: parseFloat(pricePerMonth),
+        securityDeposit: parseFloat(securityDeposit),
+        deliveryCharges: deliveryAvailable ? parseFloat(deliveryCharges) : 0
+      };
+    }
 
     console.log('Creating listing with data:', {
       seller: sellerId,
       title,
       description,
       type,
-      price,
+      price: priceData,
       category,
       condition,
       images: imageIds,
@@ -72,7 +84,7 @@ exports.createListing = async (req, res) => {
       title,
       description,
       type,
-      price,
+      price: priceData,
       category,
       condition,
       images: imageIds,

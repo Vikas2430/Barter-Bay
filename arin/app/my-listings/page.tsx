@@ -62,11 +62,15 @@ export default function MyListingsPage() {
 
         const data = await response.json()
         if (data.success) {
+          // Filter out rental listings and only show sale listings
           const saleListings = data.data.listings.filter((listing: any) => 
             listing.type === 'sale' || !listing.type
           )
           console.log('Sale listings:', saleListings)
           setListings(saleListings)
+        } else {
+          console.error('API returned error:', data)
+          toast.error('Failed to load your listings')
         }
       } catch (error) {
         console.error('Error fetching listings:', error)
@@ -110,12 +114,14 @@ export default function MyListingsPage() {
     }
   }
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: any) => {
+    // Handle both number and object price formats
+    const amount = typeof price === 'number' ? price : (price?.amount || 0)
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0
-    }).format(price)
+    }).format(amount)
   }
 
   const formatDate = (dateString: string) => {

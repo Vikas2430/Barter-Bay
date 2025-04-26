@@ -43,7 +43,8 @@ export default function SellPage() {
     price: "",
     category: "",
     condition: "",
-    location: ""
+    location: "",
+    deliveryAvailable: false
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -100,9 +101,26 @@ export default function SellPage() {
       }
 
       const formDataToSend = new FormData()
+      
+      // Add basic form data
       Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, value)
+        if (key !== 'price' && key !== 'deliveryAvailable') {
+          formDataToSend.append(key, String(value))
+        }
       })
+      
+      // Add required fields
+      formDataToSend.append('type', 'sale')
+      formDataToSend.append('contactInfo', 'Contact seller for details')
+      formDataToSend.append('deliveryAvailable', 'false')
+      
+      // Add price data
+      const price = {
+        amount: parseFloat(formData.price)
+      }
+      formDataToSend.append('price', JSON.stringify(price))
+      
+      // Add images
       images.forEach(image => {
         formDataToSend.append('images', image)
       })
