@@ -29,7 +29,7 @@ const products = [
     description: "iPhone 12 Pro in excellent condition. Includes charger and original box.",
     condition: "Like New",
     category: "Electronics",
-    location: "San Francisco, CA",
+    location: "Shankar Nagar, Raipur",
     seller: {
       id: "user2",
       name: "Tech Reseller",
