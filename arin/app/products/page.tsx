@@ -168,12 +168,6 @@ export default function ProductsPage() {
     fetchListings()
   }, [])
 
-  // Set up polling to refresh listings every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchListings, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
   // Initialize search query from URL
   useEffect(() => {
     if (searchParams) {

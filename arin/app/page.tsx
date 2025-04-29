@@ -125,11 +125,10 @@ export default function Home() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">Browse Categories</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <CategoryFilter category="Electronics" icon="smartphone" />
-          <CategoryFilter category="Furniture" icon="armchair" />
           <CategoryFilter category="Clothing" icon="shirt" />
-          <CategoryFilter category="Books" icon="book" />
+          <CategoryFilter category="Furniture" icon="armchair" />
           <CategoryFilter category="Sports" icon="dumbbell" />
           <CategoryFilter category="Collectibles" icon="trophy" />
         </div>

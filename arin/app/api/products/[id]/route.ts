@@ -9,7 +9,7 @@ const products = [
     description: "This authentic vintage leather jacket features a classic design with a comfortable fit. Made from genuine leather, it offers durability and style that will last for years. The jacket includes two front pockets, a full-length zipper, and adjustable cuffs.",
     condition: "Good",
     category: "Clothing",
-    location: "New York, NY",
+    location: "Kanpur, UP",
     seller: {
       name: "John Doe",
       rating: 4.8,
@@ -59,7 +59,7 @@ const products = [
     description: "Beautiful antique wooden chair with intricate carvings. A perfect addition to any vintage collection.",
     condition: "Used",
     category: "Furniture",
-    location: "London, UK",
+    location: "Lucknow, UP",
     seller: {
       name: "Vintage Finds",
       rating: 4.7,
@@ -82,7 +82,7 @@ const products = [
     description: "High-quality mountain bike suitable for trails and adventures. Perfect for outdoor enthusiasts.",
     condition: "Good",
     category: "Sports",
-    location: "Denver, CO",
+    location: "Bhopal, MP",
     seller: {
       name: "Outdoor Enthusiast",
       rating: 4.6,

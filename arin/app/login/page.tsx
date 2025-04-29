@@ -178,6 +178,9 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Logging in..." : "Login"}
                 </Button>
+                <div className="text-center text-sm text-muted-foreground mt-4">
+                  If you don't have an account, please register
+                </div>
               </form>
             </TabsContent>
             <TabsContent value="register">
