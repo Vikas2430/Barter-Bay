@@ -77,7 +77,7 @@ export default function Navbar() {
           <span className="hidden font-bold sm:inline-block text-xl">Barter Bay</span>
         </Link>
 
-        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium flex-1">
+        <nav className="flex items-center space-x-6">
           <Link href="/products" className="transition-colors hover:text-foreground/80">
             All Products
           </Link>

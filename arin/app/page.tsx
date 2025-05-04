@@ -20,13 +20,13 @@ const mockProducts = [
     id: "2",
     title: "iPhone 12 Pro",
     price: 37499,
-    image: "/placeholder.svg?height=200&width=300",
+    image: "/iphone.jpg",
   },
   {
     id: "3",
     title: "Antique Wooden Chair",
     price: 9000,
-    image: "/placeholder.svg?height=200&width=300",
+    image: "/antique chair.jpg",
   },
   {
     id: "4",
@@ -90,7 +90,7 @@ export default function Home() {
             id="1"
             title="Vintage Leather Jacket"
             price={6749}
-            image="/placeholder.svg?height=200&width=300"
+            image="/Vintage Leather jacket.jpg"
             seller="john_doe"
             condition="Good"
           />
@@ -98,7 +98,7 @@ export default function Home() {
             id="2"
             title="iPhone 12 Pro"
             price={37499}
-            image="/placeholder.svg?height=200&width=300"
+            image="/iphone.jpg"
             seller="tech_reseller"
             condition="Like New"
           />
@@ -106,7 +106,7 @@ export default function Home() {
             id="3"
             title="Antique Wooden Chair"
             price={9000}
-            image="/placeholder.svg?height=200&width=300"
+            image="/antique chair.jpg"
             seller="vintage_finds"
             condition="Used"
           />
@@ -114,7 +114,7 @@ export default function Home() {
             id="4"
             title="Mountain Bike"
             price={26250}
-            image="/placeholder.svg?height=200&width=300"
+            image="/Mountain Bike.jpg"
             seller="outdoor_enthusiast"
             condition="Good"
           />
